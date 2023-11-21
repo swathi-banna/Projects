@@ -1,3 +1,5 @@
+# Downloading the required libraries and setting the working directory
+
 library(stargazer)
 library(tidyverse)
 library(rio)
@@ -8,7 +10,9 @@ rm(list=ls())
 getwd()
 setwd("C:/Users/mdsou/Downloads")
 library(readxl)
-#Import separate datasets
+
+# Import separate datasets
+
 production = read_excel("datasets (1)/value of production.xls")
 pesticide = read_excel("datasets (1)/pesticide.xls")
 central = read_excel("categories divided.xlsx", sheet="Sheet1")
@@ -24,25 +28,34 @@ fdi = read_excel("datasets (1)/fdi.xls")
 inflow = subset(fdi, Item=="Inflow")
 outflow = subset(fdi, Item=="Outflow")
 inflow = inflow[ -c(2) ]
-17
 outflow = outflow[-c(4)]
+
 #Subdivide and correct
+
 names(inflow)[names(inflow) == 'fdi'] = 'fdi_inflows'
 names(outflow)[names(outflow) == 'fdi'] = 'fdi_outflows'
-#Import remaining
+
+#Import remaining datasets
+
 soils = read_excel("datasets (1)/drained organic soil.xls")
 irrigation = read_excel("datasets (1)/area under actual irrigation.xlsx")
 bank = read_excel("datasets (1)/bank credit.xls")
 rainfall = read_excel("datasets (1)/national rainfall index.xlsx")
 powerirr = read_excel("datasets (1)/power irrigation.xlsx")
+
 #Inner join each data set
+
 df_list <- list(bank, central, exp, fertn, fertp, fertpt, general, imp, inflow, outflow, pesticide, production, 
 recgen, soils)
 combined = df_list %>% reduce(full_join, by=c("Area", "Year"))
+
 #By country
+
 df_list2 <- list(irrigation,powerirr,rainfall)
 list2 = df_list2 %>% reduce(full_join, by=c("Country","Year"))
+
 #Create combined dataframe
+
 combined$Year = as.factor(combined$Year)
 list2$Year = as.factor(list2$Year)
 Final <- combined %>% full_join( list2, by=c('Area'='Country', 'Year'='Year'))
@@ -50,7 +63,9 @@ colnames(Final)=tolower(gsub(" ", "_",colnames(Final)))
 #Cut for production values
 Values = Final[!is.na(Final$value_of_production),]
 #x = x[complete.cases(x), ]
+
 #Output file
+
 install.packages("xlsx")
 library(xlsx)
 write.xlsx(Final, "Completedataset.xlsx")
@@ -60,8 +75,9 @@ pairs(df)
 df=Complete[10:16]
 #Clean and subset new dataframe
 Complete=read_excel("Completedataset.xlsx", sheet="Sheet1")
+
 # Check for missing values
-18
+
 colSums(is.na(Complete)) 
 colSums(is.na(other)) # Check for missing values
 #Completeset <- na.omit(Complete)
@@ -110,27 +126,36 @@ Agriculture =other
 range(Agriculture$export)
 boxplot(Agriculture$export ~ Agriculture$year, Main="Exports by Year",
  xlab="Year", ylab="Exports", col="Red", notch=TRUE, outline=FALSE)
-19
 hist(other$value_of_production, Main="Production", outline=FALSE, col="Blue")
 boxplot(Agriculture$value_of_production ~ Agriculture$year, Main="Value
  of production by year", xlab="Year",
  ylab="Total Production", col="Red", notch=TRUE, outline=FALSE)
 df = pdata.frame(other, index=c("area", "year"))
+
+# Predictive Modelling
+
 main = lmer(value_of_production~log(export) + log(export)+fertilizer.nitrogen +
  fertilizer.phosphate +fertilizer.potash+ pesticide +log(import)+
  drained_organic_soil+irrigated_land+rainlog + year+ (1 | area),
  data=other, REML=FALSE)
+
+
 plmlog = plm(valuelg~log(export)+(fertilizer.nitrogen +
  fertilizer.phosphate +fertilizer.potash)*pesticide +log(import)+
  irrlog+rainlog,
  data=df,model="within")
+
+
 plm= plm(value_of_production~log(export)+(fertilizer.nitrogen +
  fertilizer.phosphate +fertilizer.potash)*pesticide +log(import)+
  drained_organic_soil+irrlog+ rainlog,
  data=df, model="within")
 summary(plm)
+
 stargazer(main, plmlog, plm,type="text", single.row=TRUE)
-#Assmuption and quality checkcs
+
+#Assmuption and quality checks
+
 hist(other$export)
 hist(log(other$export))
 cor(other$value_of_production, other$export)
@@ -153,7 +178,6 @@ plot(credit$value_of_production, credit$recurrent_gen,
  pch = 19,
  xlab="Production", ylab="Recurrent Spending",
  col = factor(credit$year))
-20
 legend("topleft",
  legend = levels(factor(credit$year)),
  pch = 19, cex=.6,
@@ -166,9 +190,11 @@ plot(values$irrigated_land, values$value_of_production, pch = 19,
  xlab="Land Area in Hectares", ylab="Total Production",
  col = factor(values$area))
 options(scipen=3)
-#######################
+
+################
 #Credit
 ################
+
 colSums(is.na(credit))
 cor(credit[3:9])
 hist(log(credit$recurrent_gen))
