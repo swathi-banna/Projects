@@ -1,1 +1,167 @@
+rm(list=ls())
+library(readxl)
+stores <- read_excel("~/BAIS/Statistical Data Mining/Assignments/A8 SnackChain.xlsx", 
+                       sheet = "stores")
+products <- read_excel("~/BAIS/Statistical Data Mining/Assignments/A8 SnackChain.xlsx", 
+                       sheet = "products")
+txns <- read_excel("~/BAIS/Statistical Data Mining/Assignments/A8 SnackChain.xlsx", 
+                       sheet = "transactions")
 
+#Preprocessing
+
+colSums(is.na(stores))
+stores$PARKING=NULL
+table(stores$STORE_ID)                         # Store IDs 4503 and 17627 have duplicates
+stores=stores[!duplicated(stores$STORE_ID),]
+
+anyDuplicated(products$DESCRIPTION)
+table(products$DESCRIPTION)                 
+products[products$DESCRIPTION=="GM CHEERIOS",]
+products$DESCRIPTION[products$UPC==1600027564]="GM CHEERIOS SMALL"
+
+colSums(is.na(products))
+
+colSums(is.na(txns))
+txns=txns[complete.cases(txns),]           # removing NA values
+
+
+stores$CITY=NULL
+stores$STATE=NULL
+stores$MSA=NULL
+stores$AVG_WEEKLY_BASKETS=NULL
+stores$STORE_NAME=NULL
+stores$SIZE=NULL
+products$PRODUCT_SIZE=NULL
+products$SUB_CATEGORY=NULL
+products$MANUFACTURER=NULL
+
+# Merging the three tables
+
+total=merge(txns,stores,by.x="STORE_NUM",by.y="STORE_ID")
+total=merge(total,products,by.x = "UPC",by.y="UPC", all=TRUE)
+
+#Removing Oral Hygiene products
+total=subset(total,total$CATEGORY!="ORAL HYGIENE PRODUCTS")
+
+
+stargazer::stargazer(total,title="Descriptive Statistics", type="text")
+
+colSums(is.na(total))
+total=total[complete.cases(total),]
+colSums(total==0)
+attach(total)
+
+
+# Converting to Factor variables
+
+total$SEGMENT=as.factor(SEGMENT)
+total$CATEGORY=as.factor(CATEGORY)
+total$FEATURE=as.factor(FEATURE)
+total$DISPLAY=as.factor(DISPLAY)
+total$TPR_ONLY=as.factor(TPR_ONLY)
+total$UPC=as.factor(UPC)
+total$DESCRIPTION=as.factor(total$DESCRIPTION)
+total$STORE_NUM=as.factor(total$STORE_NUM)
+total$WEEK_END_DATE=as.Date(WEEK_END_DATE)
+
+library(dplyr)
+
+rm(products)
+rm(stores)
+rm(txns)
+
+total=total[SPEND>1,]
+
+summary(total$SPEND)
+
+par(mfrow=c(1,3))
+hist(SPEND)
+hist(UNITS)
+hist(HHS) 
+
+hist(log(SPEND))
+hist(log(UNITS))
+hist(log(HHS))
+par(mfrow=c(1,1))
+
+#----------------------------------------------------
+#Effects of product display, being featured in in-store circular, 
+#and temporary price reduction on product sales (spend), unit sales, 
+#and number of household purchasers
+
+Hmisc::rcorr(as.matrix(total[4:8]))
+
+glm.spend=glm(UNITS~ DISPLAY + FEATURE + TPR_ONLY + SEGMENT + CATEGORY + PRICE, 
+              poisson(link=log),data=total)
+AER::dispersiontest(glm.spend)      #lambda is 18.
+
+library(lme4)
+library(car)
+
+re.spend=lmer(log(SPEND) ~ PRICE + DISPLAY + FEATURE + TPR_ONLY + (1|CATEGORY) + 
+                (1|SEGMENT),data=total, REML=FALSE)
+vif(re.spend)
+
+re.units=lmer(log(UNITS) ~ PRICE + DISPLAY + FEATURE + TPR_ONLY + (1|CATEGORY) + (1|SEGMENT),
+               data=total, REML=FALSE)
+vif(re.units)
+
+re.hhs=lmer(log(HHS) ~ PRICE + DISPLAY + FEATURE + TPR_ONLY + (1|CATEGORY) + (1|SEGMENT),
+              data=total, REML=FALSE)
+vif(re.hhs)
+
+durbinWatsonTest(re.spend)
+lmtest::dwtest(re.spend)
+
+
+stargazer::stargazer(re.spend,re.units,re.hhs, type="text",single.row = TRUE)
+
+
+#----------------------------------------------------------------
+#Effects of display, feature, and TPR on SPEND vary by product categories and store segments.
+
+re.segment=lmer(log(SPEND) ~ PRICE + DISPLAY*SEGMENT+ FEATURE*SEGMENT + TPR_ONLY*SEGMENT + 
+                  (1|CATEGORY),data=total, REML=FALSE)
+summary(re.segment)
+vif(re.segment)
+
+re.category=lmer(log(SPEND) ~ PRICE + DISPLAY*CATEGORY+ FEATURE*CATEGORY + TPR_ONLY*CATEGORY + 
+                  (1|SEGMENT),data=total, REML=FALSE)
+summary(re.category)
+vif(re.category)
+
+#-----------------------------------------------------------------
+#Products for which the price has to be lowered to maximize (a) product sales and (b) unit sales
+
+#subsetting the data and finding Price Elasticity: product-wise
+
+x=levels(total$DESCRIPTION)
+unit_elasticity = function(price1, price2, units1, units2) {
+  u=(units2 - units1) / ((units1 + units2) / 2)
+  p=(price2 - price1) / ((price1 + price2) / 2)
+  e=u/p
+  ifelse(is.finite(e),e,0)
+}
+
+sale_elasticity = function(price1, price2, spend1, spend2) {
+  u=(spend2 - spend1) / ((spend1 + spend2) / 2)
+  p=(price2 - price1) / ((price1 + price2) / 2)
+  e=u/p
+  ifelse(is.finite(e),e,0)
+}
+
+
+PE=data.frame(Product=42,UnitElast=42,SaleElast=42)
+for(j in 1:length(x)) {
+  prod1=subset(total,descr_==x[j])
+  pe1=numeric(length(prod1$PRICE) - 1)
+  pe2=numeric(length(prod1$PRICE) - 1)
+  for (i in 1:(length(prod1$PRICE)-1)) {
+  pe1[i] = unit_elasticity(prod1$PRICE[i], prod1$PRICE[i+1], prod1$UNITS[i], prod1$UNITS[i+1])
+  pe2[i] = sale_elasticity(prod1$PRICE[i], prod1$PRICE[i+1], prod1$SPEND[i], prod1$SPEND[i+1])
+}
+pe1=na.omit(pe1)
+pe2=na.omit(pe2)
+PE[j,]=rbind(x[j],round(mean(pe1),2),round(mean(pe2),2))
+}
+View(PE)
