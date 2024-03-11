@@ -1,1 +1,210 @@
+# Downloading the required libraries and setting the working directory
 
+library(stargazer)
+library(tidyverse)
+library(rio)
+library(plm)
+library(dplyr)
+library(lme4)
+rm(list=ls())
+getwd()
+setwd("C:/Users/mdsou/Downloads")
+library(readxl)
+
+# Import separate datasets
+
+production = read_excel("datasets (1)/value of production.xls")
+pesticide = read_excel("datasets (1)/pesticide.xls")
+central = read_excel("categories divided.xlsx", sheet="Sheet1")
+general = read_excel("categories divided.xlsx", sheet="Sheet2")
+recurrent = read_excel("categories divided.xlsx", sheet="Sheet3")
+recgen = read_excel("categories divided.xlsx", sheet="Sheet4")
+imp = read_excel("categories divided.xlsx", sheet="Sheet5")
+exp = read_excel("categories divided.xlsx", sheet="Sheet6")
+fertn = read_excel("categories divided.xlsx", sheet="Sheet7")
+fertp = read_excel("categories divided.xlsx", sheet="Sheet8")
+fertpt = read_excel("categories divided.xlsx", sheet="Sheet9")
+fdi = read_excel("datasets (1)/fdi.xls")
+inflow = subset(fdi, Item=="Inflow")
+outflow = subset(fdi, Item=="Outflow")
+inflow = inflow[ -c(2) ]
+outflow = outflow[-c(4)]
+
+#Subdivide and correct
+
+names(inflow)[names(inflow) == 'fdi'] = 'fdi_inflows'
+names(outflow)[names(outflow) == 'fdi'] = 'fdi_outflows'
+
+#Import remaining datasets
+
+soils = read_excel("datasets (1)/drained organic soil.xls")
+irrigation = read_excel("datasets (1)/area under actual irrigation.xlsx")
+bank = read_excel("datasets (1)/bank credit.xls")
+rainfall = read_excel("datasets (1)/national rainfall index.xlsx")
+powerirr = read_excel("datasets (1)/power irrigation.xlsx")
+
+#Inner join each data set
+
+df_list <- list(bank, central, exp, fertn, fertp, fertpt, general, imp, inflow, outflow, pesticide, production, 
+recgen, soils)
+combined = df_list %>% reduce(full_join, by=c("Area", "Year"))
+
+#By country
+
+df_list2 <- list(irrigation,powerirr,rainfall)
+list2 = df_list2 %>% reduce(full_join, by=c("Country","Year"))
+
+#Create combined dataframe
+
+combined$Year = as.factor(combined$Year)
+list2$Year = as.factor(list2$Year)
+Final <- combined %>% full_join( list2, by=c('Area'='Country', 'Year'='Year'))
+colnames(Final)=tolower(gsub(" ", "_",colnames(Final)))
+#Cut for production values
+Values = Final[!is.na(Final$value_of_production),]
+#x = x[complete.cases(x), ]
+
+#Output file
+
+install.packages("xlsx")
+library(xlsx)
+write.xlsx(Final, "Completedataset.xlsx")
+write.xlsx(Values, "ProductionValues.xlsx")
+df=Complete[3:9]
+pairs(df)
+df=Complete[10:16]
+#Clean and subset new dataframe
+Complete=read_excel("Completedataset.xlsx", sheet="Sheet1")
+
+# Check for missing values
+
+colSums(is.na(Complete)) 
+colSums(is.na(other)) # Check for missing values
+#Completeset <- na.omit(Complete)
+#rm(Completeset)
+Complete = Complete[-c(1)]
+Complete$area=as.factor(Complete$area)
+colSums(is.na(Complete))
+credit=Complete[,c("year","area","bank_credit","capital_central","capital_general",
+ "fdi_inflows","fdi_outflows","recurrent_gen","value_of_production")]
+other=Complete[,-c(3,4,9,11,12,15,18)]
+colSums(is.na(credit))
+credit=credit[!is.na(credit$capital_central),]
+credit=credit[!is.na(credit$capital_general),]
+other$area=as.factor(other$area)
+table((other$drained_organic_soil))
+range(other$drained_organic_soil)
+other=subset(other, other$drained_organic_soil!=0)
+other$area=as.factor(other$area)
+other$year=as.factor(other$year)
+range(log(other$drained_organic_soil))
+other=other[!is.na(other$fertilizer.nitrogen),]
+other=other[!is.na(other$fertilizer.phosphate),]
+other=other[!is.na(other$fertilizer.potash),]
+other=other[!is.na(other$import),]
+other=other[!is.na(other$pesticide),]
+other=other[!is.na(other$value_of_production),]
+other=other[!is.na(other$drained_organic_soil),]
+other=other[!is.na(other$irrigated_land),]
+other=subset(other, other$irrigated_land != 0)
+other=other[!is.na(other$rainfall_index),]
+other$exportlog=log(other$export)
+other$valuelg=log(other$value_of_production)
+hist(other$valuelg)
+table(other$valuelg)
+#other$fertnlog=log(other$fertilizer.nitrogen)
+#other$fertpllog=log(other$fertilizer.phosphate)
+#other$fertpotlog=log(other$fertilizer.potash)
+#other$drainedlog=log(other$drained_organic_soil)
+other$irrlog=log(other$irrigated_land)
+other$rainlog=log(other$rainfall_index)
+range(log(other$rainfall_index), na.rm=TRUE)
+range(other$irrigated_land)
+range(other$irrlog)
+Agriculture =other
+#options(scipen=999)
+range(Agriculture$export)
+boxplot(Agriculture$export ~ Agriculture$year, Main="Exports by Year",
+ xlab="Year", ylab="Exports", col="Red", notch=TRUE, outline=FALSE)
+hist(other$value_of_production, Main="Production", outline=FALSE, col="Blue")
+boxplot(Agriculture$value_of_production ~ Agriculture$year, Main="Value
+ of production by year", xlab="Year",
+ ylab="Total Production", col="Red", notch=TRUE, outline=FALSE)
+df = pdata.frame(other, index=c("area", "year"))
+
+# Predictive Modelling
+
+main = lmer(value_of_production~log(export) + log(export)+fertilizer.nitrogen +
+ fertilizer.phosphate +fertilizer.potash+ pesticide +log(import)+
+ drained_organic_soil+irrigated_land+rainlog + year+ (1 | area),
+ data=other, REML=FALSE)
+
+
+plmlog = plm(valuelg~log(export)+(fertilizer.nitrogen +
+ fertilizer.phosphate +fertilizer.potash)*pesticide +log(import)+
+ irrlog+rainlog,
+ data=df,model="within")
+
+
+plm= plm(value_of_production~log(export)+(fertilizer.nitrogen +
+ fertilizer.phosphate +fertilizer.potash)*pesticide +log(import)+
+ drained_organic_soil+irrlog+ rainlog,
+ data=df, model="within")
+summary(plm)
+
+stargazer(main, plmlog, plm,type="text", single.row=TRUE)
+
+#Assmuption and quality checks
+
+hist(other$export)
+hist(log(other$export))
+cor(other$value_of_production, other$export)
+library(AER)
+library(car)
+durbinWatsonTest(main)
+durbinWatsonTest(plmlog)
+ranef(plm)
+ranef(plmlog)
+stargazer(glm1, glm2, glm3, type="text", single.row=TRUE)
+vif(plmlog)
+vif(plm)
+vif(main)
+plmtest(plm, effect="twoways", type="bp")
+pFtest(plm, main) 
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+plot(credit$value_of_production, credit$recurrent_gen,
+ pch = 19,
+ xlab="Production", ylab="Recurrent Spending",
+ col = factor(credit$year))
+legend("topleft",
+ legend = levels(factor(credit$year)),
+ pch = 19, cex=.6,
+ col = factor(levels(factor(credit$year))))
+range(other$value_of_production)
+mean(other$value_of_production)
+values=subset(other, subset=value_of_production<23772382)
+values=subset(values, subset=irrigated_land<2500)
+plot(values$irrigated_land, values$value_of_production, pch = 19, 
+ xlab="Land Area in Hectares", ylab="Total Production",
+ col = factor(values$area))
+options(scipen=3)
+
+################
+#Credit
+################
+
+colSums(is.na(credit))
+cor(credit[3:9])
+hist(log(credit$recurrent_gen))
+credit$logcentral=log(credit$capital_central)
+credit$banklog=log(credit$bank_credit)
+credit$logrecurrent=log(credit$recurrent_gen)
+credit=credit[!is.na(credit$recurrent_gen),]
+credit$logvalue=log(credit$value_of_production)
+df2 = pdata.frame(credit, index=c("area", "year"))
+creditplm = plm(logvalue ~ banklog + capital_central + recurrent_gen
+ , data=df2,model="random")
+summary(creditplm)
+vif(creditplm)
