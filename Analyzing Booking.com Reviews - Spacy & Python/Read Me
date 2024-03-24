@@ -1,0 +1,54 @@
+# Booking.com Hotel Reviews Analysis
+This repository contains data and analysis for guest reviews and ratings of hotels across Europe scraped from popular hotel reservation website Booking.com. The dataset is stored in the file BookingDotCom_HotelReviews.xlsx. The text data has been preprocessed by removing unicode and punctuation and transforming to lower case.
+
+## Data Description
+Data Context:
+This dataset contains 515,000 customer reviews and scoring of 1493 luxury hotels across Europe scraped from popular hotel reservation website Booking.com. 
+All data is publicly available, but originally owned by Booking.com. 
+The text data was cleaned by removing unicode and punctuation and by transforming text into lower case. No other preprocessing was performed.
+
+Data Description:
+Hotel_Name: Name of hotel
+Hotel_Address: Address of hotel, including city and country
+Review_Count: Total number of valid reviews for this hotel
+Non_Review_Scoring_Count: Count of guests who  scored the hotel on service but did not leave a review. This number indicates the number of valid scores without review 
+Average_Hotel_Score: Average Score of the hotel, calculated based on the latest comment in the last year.
+Review_Date: Date when reviewer posted his/her review.
+Reviewer_Nationality: Nationality of Reviewer
+Positive_Review: Positive Review the reviewer gave to the hotel. 'No Positive' means that reviewer did not leave a positive review.
+Negative_Review: Negative Review the reviewer gave to the hotel. 'No Negative' means that reviewer did not leave a negative review.
+Total_Reviewer_Review: Number of reviews the reviewers has given in the past
+Reviewer_Score: Score the reviewer has given to the hotel, based on his/her experience
+Tags: Tags reviewer gave the hotel.
+
+## Analysis
+Top Features in Reviews
+Positive Reviews:
+Identify the top five hotel features that customers mention most positively.
+Negative Reviews:
+Identify the top five features that customers mention most negatively.
+Preferences based on Traveler Type
+Identify the top five features preferred by customers based on the following traveler types:
+
+Solo Travelers
+Groups
+Business Travelers
+Leisure Travelers
+Couples
+Families with Young Children
+
+## Top Features by Country
+Identify the top five features liked most and complained about most by customers in the following countries:
+
+United Kingdom
+France
+Italy
+Spain
+
+## Dashboard Plots
+### Top Five Hotels Overall: 
+Display hotels with consistently high ratings.
+### Bottom Five Hotels Overall: 
+Display hotels with consistently low ratings.
+### Five Most Improved Hotels: 
+Display hotels with the highest improvement in average ratings from 2015 to 2017, showing their average ratings for each of the three years.
